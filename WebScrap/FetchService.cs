@@ -14,7 +14,7 @@ public class FetchService
     public static void FetchData()
     {
         var productCounter = 1;
-        var pageCounter = 2;
+        var pageCounter = 1;
         var chromeDriver = new ChromeDriver();
         chromeDriver.Manage().Window.Maximize();
 
@@ -22,10 +22,8 @@ public class FetchService
 
         var productList = new List<Product>();
 
-        while (pageCounter <= 2)
+        while (pageCounter <= 1383)
         {
-            Thread.Sleep(10000);
-
             var siteUrl = $"{coreUrl}/ingredients/page/{pageCounter}";
 
             NavigateWithRetry(chromeDriver, siteUrl);
@@ -34,6 +32,7 @@ public class FetchService
 
             try
             {
+                Thread.Sleep(3000);
                 var button = wait.Until(driver => driver.FindElement(By.ClassName("dismiss-drawer-button")));
                 button.Click();
                 Console.WriteLine("Button clicked.");
