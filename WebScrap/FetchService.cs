@@ -3,6 +3,7 @@ using OpenQA.Selenium;
 using OpenQA.Selenium.Chrome;
 using OpenQA.Selenium.Support.UI;
 using System.Text;
+using System.Text.Encodings.Web;
 using System.Text.Json;
 using System.Web;
 
@@ -13,7 +14,7 @@ public class FetchService
     public static void FetchData()
     {
         var productCounter = 1;
-        var pageCounter = 1;
+        var pageCounter = 2;
         var chromeDriver = new ChromeDriver();
         chromeDriver.Manage().Window.Maximize();
 
@@ -62,6 +63,8 @@ public class FetchService
                 }
             }
 
+            var web = new HtmlWeb();
+
             if (urlList is not null && urlList.Count != 0)
             {
                 foreach (var link in urlList)
@@ -71,26 +74,10 @@ public class FetchService
                     product.CosIngData = cosIngData;
                     product.PageNumber = pageCounter;
 
-                    NavigateWithRetry(chromeDriver, link);
-
-                    try
-                    {
-                        Thread.Sleep(5000);
-                        var button = wait.Until(driver => driver.FindElement(By.ClassName("dismiss-drawer-button")));
-                        button.Click();
-                        Console.WriteLine($"Button clicked for product number : {productCounter}");
-                    }
-                    catch (Exception e)
-                    {
-                        Console.WriteLine($"Button not found within the timeout period. Product number: {productCounter}");
-                    }
-
-                    productCounter++;
-
-                    pageSource = chromeDriver.PageSource;
-                    htmlDoc?.LoadHtml(pageSource);
+                    htmlDoc = web.Load(link);                   
 
                     product.Name = HttpUtility.HtmlDecode(htmlDoc?.DocumentNode?.SelectSingleNode(".//article//h1")?.InnerText?.Trim());
+                    Console.WriteLine($"Product {productCounter++} Name: {product.Name}");
 
                     var descriptionDiv = htmlDoc?.DocumentNode?.SelectSingleNode("//div[contains(@class, 'ingredient-description')]");
                     if (descriptionDiv != null)
@@ -102,11 +89,13 @@ public class FetchService
                         {
                             foreach (var paragraph in paragraphs)
                             {
-                                concatenatedText.Append(HttpUtility.HtmlDecode(paragraph.InnerText.Trim()) + " ");
+                                concatenatedText.Append(paragraph.InnerText.Trim() + " ");
                             }
                         }
 
-                        product.Explained = concatenatedText.ToString().Trim();
+                        var explained = concatenatedText.ToString().Trim();
+                        var explainedDecoded = HttpUtility.HtmlDecode(explained);
+                        product.Explained = explainedDecoded;
                     }
 
                     var whatItIsDiv = htmlDoc?.DocumentNode?.SelectSingleNode("//div[@class='flex flex-wrap mt-1']");
@@ -179,9 +168,14 @@ public class FetchService
             pageCounter++;
         }
 
-        string jsonString = JsonSerializer.Serialize(productList, new JsonSerializerOptions { WriteIndented = true });
-        File.WriteAllText("products.json", jsonString);
-        Console.WriteLine("Data has been saved to products.json");
+        var options = new JsonSerializerOptions
+        {
+            Encoder = JavaScriptEncoder.UnsafeRelaxedJsonEscaping,
+            WriteIndented = true
+        };
+
+        string json = JsonSerializer.Serialize(productList, options);
+        File.WriteAllText("products.json", json);
 
         chromeDriver.Quit();
     }
