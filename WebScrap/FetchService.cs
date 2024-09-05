@@ -2,6 +2,9 @@
 using OpenQA.Selenium;
 using OpenQA.Selenium.Chrome;
 using OpenQA.Selenium.Support.UI;
+using System.Text;
+using System.Text.Json;
+using System.Web;
 
 namespace WebScrap;
 
@@ -9,44 +12,43 @@ public class FetchService
 {
     public static void FetchData()
     {
+        var productCounter = 1;
         var pageCounter = 1;
         var chromeDriver = new ChromeDriver();
         chromeDriver.Manage().Window.Maximize();
 
         var coreUrl = $"https://skinsort.com";
 
-        while (pageCounter <= 1383)
+        var productList = new List<Product>();
+
+        while (pageCounter <= 2)
         {
-            var siteUrl = $"{coreUrl}/ingredients/page/{pageCounter++}";
+            Thread.Sleep(10000);
 
-            chromeDriver.Navigate().GoToUrl(siteUrl);
+            var siteUrl = $"{coreUrl}/ingredients/page/{pageCounter}";
 
-            // Set up a wait to look for the button
+            NavigateWithRetry(chromeDriver, siteUrl);
+
             var wait = new WebDriverWait(chromeDriver, TimeSpan.FromSeconds(10));
 
             try
             {
-                // Try to find and click the button if it appears
                 var button = wait.Until(driver => driver.FindElement(By.ClassName("dismiss-drawer-button")));
                 button.Click();
                 Console.WriteLine("Button clicked.");
             }
             catch (Exception e)
             {
-                // Handle the case where the button does not appear
                 Console.WriteLine("Button not found within the timeout period.");
             }
 
-            // Get the page source after the site has loaded
             string pageSource = chromeDriver.PageSource;
-
-            // Create an HtmlDocument object and load the page source into it
             var htmlDoc = new HtmlDocument();
             htmlDoc.LoadHtml(pageSource);
 
             var urlList = new List<string>();
 
-            var aTags = htmlDoc.DocumentNode.SelectNodes("//a[@class='w-1/2 lg:w-1/3 group cursor-pointer p-3']");
+            var aTags = htmlDoc?.DocumentNode?.SelectNodes("//a[@class='w-1/2 lg:w-1/3 group cursor-pointer p-3']");
 
             if (aTags != null)
             {
@@ -60,29 +62,156 @@ public class FetchService
                 }
             }
 
-
             if (urlList is not null && urlList.Count != 0)
             {
                 foreach (var link in urlList)
                 {
-                    chromeDriver.Navigate().GoToUrl(link);
+                    var product = new Product();
+                    var cosIngData = new CosIngData();
+                    product.CosIngData = cosIngData;
+                    product.PageNumber = pageCounter;
+
+                    NavigateWithRetry(chromeDriver, link);
 
                     try
                     {
-                        Thread.Sleep(3000);
-                        // Try to find and click the button if it appears
+                        Thread.Sleep(5000);
                         var button = wait.Until(driver => driver.FindElement(By.ClassName("dismiss-drawer-button")));
                         button.Click();
-                        Console.WriteLine("Button clicked.");
+                        Console.WriteLine($"Button clicked for product number : {productCounter}");
                     }
                     catch (Exception e)
                     {
-                        // Handle the case where the button does not appear
-                        Console.WriteLine("Button not found within the timeout period.");
+                        Console.WriteLine($"Button not found within the timeout period. Product number: {productCounter}");
                     }
 
-                    Console.ReadLine();
+                    productCounter++;
+
+                    pageSource = chromeDriver.PageSource;
+                    htmlDoc?.LoadHtml(pageSource);
+
+                    product.Name = HttpUtility.HtmlDecode(htmlDoc?.DocumentNode?.SelectSingleNode(".//article//h1")?.InnerText?.Trim());
+
+                    var descriptionDiv = htmlDoc?.DocumentNode?.SelectSingleNode("//div[contains(@class, 'ingredient-description')]");
+                    if (descriptionDiv != null)
+                    {
+                        var paragraphs = descriptionDiv.SelectNodes(".//p");
+                        StringBuilder concatenatedText = new();
+
+                        if (paragraphs != null)
+                        {
+                            foreach (var paragraph in paragraphs)
+                            {
+                                concatenatedText.Append(HttpUtility.HtmlDecode(paragraph.InnerText.Trim()) + " ");
+                            }
+                        }
+
+                        product.Explained = concatenatedText.ToString().Trim();
+                    }
+
+                    var whatItIsDiv = htmlDoc?.DocumentNode?.SelectSingleNode("//div[@class='flex flex-wrap mt-1']");
+                    var whatItIsNodes = whatItIsDiv?.SelectNodes(".//div[@class='px-3 text-left py-0.5']");
+                    if (whatItIsNodes is not null && whatItIsNodes.Count != 0)
+                    {
+                        foreach (var whatItIs in whatItIsNodes)
+                        {
+                            product.WhatItIs.Add(HttpUtility.HtmlDecode(whatItIs.InnerText.Trim()));
+                        }
+                    }
+
+                    var benefitAndConcernsDivs = htmlDoc?.DocumentNode?.SelectNodes("//div[@class='flex flex-wrap mt-2']");
+
+                    if (benefitAndConcernsDivs is not null && benefitAndConcernsDivs.Count != 0)
+                    {
+                        var benefitNodes = benefitAndConcernsDivs?.FirstOrDefault()?.SelectNodes(".//div[@class='px-3 text-left py-0.5']");
+                        if (benefitNodes is not null && benefitNodes.Count != 0)
+                        {
+                            foreach (var benefit in benefitNodes)
+                            {
+                                product.Benefits.Add(HttpUtility.HtmlDecode(benefit.InnerText.Trim()));
+                            }
+                        }
+                    }
+
+                    if (benefitAndConcernsDivs is not null && benefitAndConcernsDivs.Count > 1)
+                    {
+                        var concernsNodes = benefitAndConcernsDivs?.LastOrDefault()?.SelectNodes(".//div[@class='px-3 text-left py-0.5']");
+                        if (concernsNodes is not null && concernsNodes.Count != 0)
+                        {
+                            foreach (var concern in concernsNodes)
+                            {
+                                product.Concerns.Add(HttpUtility.HtmlDecode(concern.InnerText.Trim()));
+                            }
+                        }
+                    }
+
+                    var whatItDoesNodes = htmlDoc?.DocumentNode?.SelectNodes("//span[@class='text-xs text-warm-gray-700 py-2 font-normal']");
+                    if (whatItDoesNodes is not null && whatItDoesNodes.Count != 0)
+                    {
+                        foreach (var whatItDoes in whatItDoesNodes)
+                        {
+                            product.WhatItDoes.Add(HttpUtility.HtmlDecode(whatItDoes.InnerText.Trim()));
+                        }
+                    }
+
+                    var alternativeNamesDiv = htmlDoc?.DocumentNode?.SelectNodes("//div[@class='border-b lg:border-none lg:mb-2 lg:text-sm lg:bg-warm-gray-100 lg:rounded-xl border-warm-gray-100 py-2.5 px-4 font-medium']");
+                    if (alternativeNamesDiv is not null && alternativeNamesDiv.Count != 0)
+                    {
+                        foreach (var alternativeName in alternativeNamesDiv)
+                        {
+                            product.AlternativeNames.Add(HttpUtility.HtmlDecode(alternativeName.InnerText.Trim()));
+                        }
+                    }
+
+                    var cosIngDataDiv = htmlDoc?.DocumentNode?.SelectSingleNode("//div[@class='rounded-xl flex flex-col bg-white mb-20 lg:max-w-md']");
+
+                    cosIngData.CosIngID = HttpUtility.HtmlDecode(cosIngDataDiv?.SelectSingleNode(".//div[contains(., 'CosIng ID')]/span")?.InnerText?.Trim());
+                    cosIngData.INCIName = HttpUtility.HtmlDecode(cosIngDataDiv?.SelectSingleNode(".//div[contains(., 'INCI Name')]/span")?.InnerText?.Trim());
+                    cosIngData.InnName = HttpUtility.HtmlDecode(cosIngDataDiv?.SelectSingleNode(".//div[contains(., 'INN Name')]/span")?.InnerText?.Trim());
+                    cosIngData.ECNumber = HttpUtility.HtmlDecode(cosIngDataDiv?.SelectSingleNode(".//div[contains(., 'EC #')]/span")?.InnerText?.Replace("&nbsp;", "")?.Trim());
+                    cosIngData.PhEurName = HttpUtility.HtmlDecode(cosIngDataDiv?.SelectSingleNode(".//div[contains(., 'Ph. Eur. Name')]/span")?.InnerText?.Trim());
+                    cosIngData.AllFunctions = HttpUtility.HtmlDecode(cosIngDataDiv?.SelectSingleNode(".//div[contains(., 'All Functions')]/span")?.InnerText?.Trim());
+
+                    productList.Add(product);
                 }
+            }
+
+            pageCounter++;
+        }
+
+        string jsonString = JsonSerializer.Serialize(productList, new JsonSerializerOptions { WriteIndented = true });
+        File.WriteAllText("products.json", jsonString);
+        Console.WriteLine("Data has been saved to products.json");
+
+        chromeDriver.Quit();
+    }
+
+    public static void NavigateWithRetry(ChromeDriver chromeDriver, string url)
+    {
+        int timeoutInSeconds = 60;
+        int maxRetries = 6;
+        int attempt = 0;
+        bool success = false;
+
+        while (attempt < maxRetries && !success)
+        {
+            try
+            {
+                chromeDriver.Manage().Timeouts().PageLoad = TimeSpan.FromSeconds(timeoutInSeconds);
+                chromeDriver.Navigate().GoToUrl(url);
+                success = true;
+            }
+            catch (Exception)
+            {
+                attempt++;
+                Console.WriteLine($"Timeout error while navigating to {url}. Retrying {attempt}/{maxRetries}...");
+
+                Thread.Sleep(2000);
+            }
+
+            if (attempt == maxRetries)
+            {
+                Console.WriteLine($"Failed to navigate to {url} after {maxRetries} attempts.");
             }
         }
     }
