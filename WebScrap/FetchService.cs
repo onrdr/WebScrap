@@ -157,7 +157,7 @@ public class FetchService
                                     whatItDoes += ($": {descriptionText}");
                                 }
 
-                                product.WhatItDoes.Add(whatItDoes);
+                                product.WhatItDoes.Add(HttpUtility.HtmlDecode(whatItDoes));
                             }
                         }
 
