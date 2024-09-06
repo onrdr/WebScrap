@@ -203,6 +203,125 @@ public class FetchService
         chromeDriver.Quit();
     }
 
+    public static void FetchData2()
+    {
+        var productCounter = 1;
+        var pageCounter = 1;
+        var chromeDriver = new ChromeDriver();
+        chromeDriver.Manage().Window.Maximize();
+
+        var coreUrl = $"https://skinsort.com";
+
+        var productList = new List<Product2>();
+
+        try
+        {
+            while (pageCounter <= 1586)
+            {
+                var siteUrl = $"{coreUrl}/products/page/{pageCounter}";
+
+                NavigateWithRetry(chromeDriver, siteUrl);
+
+                var wait = new WebDriverWait(chromeDriver, TimeSpan.FromSeconds(10));
+
+                try
+                {
+                    Thread.Sleep(1000);
+                    var button = wait.Until(driver => driver.FindElement(By.ClassName("dismiss-drawer-button")));
+                    button.Click();
+                    Console.WriteLine($"Button clicked. Page: {pageCounter}");
+                }
+                catch (Exception e)
+                {
+                    Console.WriteLine("Button not found within the timeout period.");
+                }
+
+                string pageSource = chromeDriver.PageSource;
+                var htmlDoc = new HtmlDocument();
+                htmlDoc.LoadHtml(pageSource);
+
+                var urlList = new List<string>();
+
+                var hrefs = htmlDoc?.DocumentNode?
+                    .SelectNodes("//span[contains(@class, 'text-warm-gray-900')]//a[@href]")
+                       .Select(a => a.GetAttributeValue("href", string.Empty));
+
+                if (hrefs != null)
+                {
+                    foreach (var href in hrefs)
+                    {
+                        if (!string.IsNullOrEmpty(href))
+                        {
+                            urlList.Add($"{coreUrl}{href}");
+                        }
+                    }
+                }
+
+                var web = new HtmlWeb();
+
+                if (urlList is not null && urlList.Count != 0)
+                {
+                    foreach (var link in urlList)
+                    {
+                        var product = new Product2
+                        {
+                            PageNumber = pageCounter
+                        };
+
+                        htmlDoc = web.Load(link);
+
+                        product.ImageUrl = HttpUtility.HtmlDecode(htmlDoc?.DocumentNode?
+                            .SelectSingleNode("//img[contains(@class, 'mx-auto lg:mx-0 rounded')]")?
+                            .GetAttributeValue("src", string.Empty));
+
+                        product.Brand = HttpUtility.HtmlDecode(htmlDoc?.DocumentNode?
+                            .SelectSingleNode(".//span[contains(@class, 'pb-1 text-lg')]")?.InnerText?.Trim());
+
+                        product.Name = HttpUtility.HtmlDecode(htmlDoc?.DocumentNode?
+                            .SelectSingleNode(".//h1[contains(@class, 'font-header break')]")?
+                            .ChildNodes
+                            .Where(n => n.NodeType == HtmlNodeType.Text && !string.IsNullOrWhiteSpace(n.InnerText))
+                            .Select(n => n.InnerText.Trim())
+                            .FirstOrDefault());
+
+                        var ingredientsDivs = htmlDoc?.DocumentNode?.SelectNodes("//div[contains(@class, 'col-span-8')]");
+                        if (ingredientsDivs is not null && ingredientsDivs.Count != 0)
+                        {
+                            foreach (var div in ingredientsDivs)
+                            {
+                                var ingredient = HttpUtility.HtmlDecode(div.SelectSingleNode(".//span[@class='group-data-[comparison=true]:leading-tight']")?.InnerText?.Trim());
+                                if (!string.IsNullOrEmpty(ingredient))
+                                {
+                                    product.Ingredients.Add(ingredient);
+                                }
+                            }
+                        }
+
+                        Console.WriteLine($"Product {productCounter++} Name: {product.Name}");
+
+                        productList.Add(product);
+                    }
+                }
+
+                pageCounter++;
+            }
+        }
+        catch (Exception e)
+        {
+            Console.WriteLine($"Exception thrown in page: {pageCounter}\nMessage: {e.Message} ");
+        }
+
+        var options = new JsonSerializerOptions
+        {
+            Encoder = JavaScriptEncoder.UnsafeRelaxedJsonEscaping,
+            WriteIndented = true
+        };
+
+        string json = JsonSerializer.Serialize(productList, options);
+        File.WriteAllText("products2.json", json);
+
+        chromeDriver.Quit();
+    }
     public static void NavigateWithRetry(ChromeDriver chromeDriver, string url)
     {
         int timeoutInSeconds = 60;
