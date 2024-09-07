@@ -216,7 +216,7 @@ public class FetchService
 
         try
         {
-            while (pageCounter <= 1586)
+            while (pageCounter <= 1588)
             {
                 var siteUrl = $"{coreUrl}/products/page/{pageCounter}";
 
@@ -293,6 +293,19 @@ public class FetchService
                                 if (!string.IsNullOrEmpty(ingredient))
                                 {
                                     product.Ingredients.Add(ingredient);
+                                }
+                            }
+                        }
+
+                        var quickInfoDivs = htmlDoc?.DocumentNode?.SelectNodes("//*[contains(@class, 'flex flex-row-reverse')]");
+                        if (quickInfoDivs is not null && quickInfoDivs.Count != 0)
+                        {
+                            foreach(var div in quickInfoDivs)
+                            {
+                                var info = HttpUtility.HtmlDecode(div.InnerText?.Replace("\n\n\n", " ").Trim());
+                                if (!string.IsNullOrEmpty(info))
+                                {
+                                    product.QuickInfo.Add(info);
                                 }
                             }
                         }

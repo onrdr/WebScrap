@@ -7,4 +7,5 @@ public class Product2
     public string? Name { get; set; }
     public string? ImageUrl { get; set; }
     public List<string?> Ingredients { get; set; } = [];
+    public List<string?> QuickInfo { get; set; } = [];
 }
