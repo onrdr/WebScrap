@@ -1,7 +1,4 @@
 ﻿using HtmlAgilityPack;
-using OpenQA.Selenium;
-using OpenQA.Selenium.Chrome;
-using OpenQA.Selenium.Support.UI;
 using System.Text;
 using System.Text.Encodings.Web;
 using System.Text.Json;
@@ -14,13 +11,13 @@ public class FetchService
     public static void FetchData()
     {
         var productCounter = 1;
-        var pageCounter = 269;
-        var chromeDriver = new ChromeDriver();
-        chromeDriver.Manage().Window.Maximize();
+        var pageCounter = 1;
 
         var coreUrl = $"https://skinsort.com";
 
         var productList = new List<Product>();
+
+        var web = new HtmlWeb();
 
         try
         {
@@ -28,25 +25,7 @@ public class FetchService
             {
                 var siteUrl = $"{coreUrl}/ingredients/page/{pageCounter}";
 
-                NavigateWithRetry(chromeDriver, siteUrl);
-
-                var wait = new WebDriverWait(chromeDriver, TimeSpan.FromSeconds(10));
-
-                try
-                {
-                    Thread.Sleep(2000);
-                    var button = wait.Until(driver => driver.FindElement(By.ClassName("dismiss-drawer-button")));
-                    button.Click();
-                    Console.WriteLine($"Button clicked. Page: {pageCounter}");
-                }
-                catch (Exception e)
-                {
-                    Console.WriteLine("Button not found within the timeout period.");
-                }
-
-                string pageSource = chromeDriver.PageSource;
-                var htmlDoc = new HtmlDocument();
-                htmlDoc.LoadHtml(pageSource);
+                var htmlDoc = web.Load(siteUrl);
 
                 var urlList = new List<string>();
 
@@ -63,8 +42,6 @@ public class FetchService
                         }
                     }
                 }
-
-                var web = new HtmlWeb();
 
                 if (urlList is not null && urlList.Count != 0)
                 {
@@ -199,20 +176,18 @@ public class FetchService
 
         string json = JsonSerializer.Serialize(productList, options);
         File.WriteAllText("products.json", json);
-
-        chromeDriver.Quit();
     }
 
     public static void FetchData2()
     {
         var productCounter = 1;
         var pageCounter = 1;
-        var chromeDriver = new ChromeDriver();
-        chromeDriver.Manage().Window.Maximize();
 
         var coreUrl = $"https://skinsort.com";
 
         var productList = new List<Product2>();
+
+        var web = new HtmlWeb();
 
         try
         {
@@ -220,25 +195,7 @@ public class FetchService
             {
                 var siteUrl = $"{coreUrl}/products/page/{pageCounter}";
 
-                NavigateWithRetry(chromeDriver, siteUrl);
-
-                var wait = new WebDriverWait(chromeDriver, TimeSpan.FromSeconds(10));
-
-                try
-                {
-                    Thread.Sleep(1000);
-                    var button = wait.Until(driver => driver.FindElement(By.ClassName("dismiss-drawer-button")));
-                    button.Click();
-                    Console.WriteLine($"Button clicked. Page: {pageCounter}");
-                }
-                catch (Exception e)
-                {
-                    Console.WriteLine("Button not found within the timeout period.");
-                }
-
-                string pageSource = chromeDriver.PageSource;
-                var htmlDoc = new HtmlDocument();
-                htmlDoc.LoadHtml(pageSource);
+                var htmlDoc = web.Load(siteUrl);
 
                 var urlList = new List<string>();
 
@@ -255,9 +212,7 @@ public class FetchService
                             urlList.Add($"{coreUrl}{href}");
                         }
                     }
-                }
-
-                var web = new HtmlWeb();
+                }                
 
                 if (urlList is not null && urlList.Count != 0)
                 {
@@ -332,36 +287,5 @@ public class FetchService
 
         string json = JsonSerializer.Serialize(productList, options);
         File.WriteAllText("products2.json", json);
-
-        chromeDriver.Quit();
-    }
-    public static void NavigateWithRetry(ChromeDriver chromeDriver, string url)
-    {
-        int timeoutInSeconds = 60;
-        int maxRetries = 6;
-        int attempt = 0;
-        bool success = false;
-
-        while (attempt < maxRetries && !success)
-        {
-            try
-            {
-                chromeDriver.Manage().Timeouts().PageLoad = TimeSpan.FromSeconds(timeoutInSeconds);
-                chromeDriver.Navigate().GoToUrl(url);
-                success = true;
-            }
-            catch (Exception)
-            {
-                attempt++;
-                Console.WriteLine($"Timeout error while navigating to {url}. Retrying {attempt}/{maxRetries}...");
-
-                Thread.Sleep(2000);
-            }
-
-            if (attempt == maxRetries)
-            {
-                Console.WriteLine($"Failed to navigate to {url} after {maxRetries} attempts.");
-            }
-        }
     }
 }
