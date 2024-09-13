@@ -191,7 +191,7 @@ public class FetchService
 
         try
         {
-            while (pageCounter <= 1588)
+            while (pageCounter <= 5)
             {
                 var siteUrl = $"{coreUrl}/products/page/{pageCounter}";
 
@@ -212,7 +212,7 @@ public class FetchService
                             urlList.Add($"{coreUrl}{href}");
                         }
                     }
-                }                
+                }
 
                 if (urlList is not null && urlList.Count != 0)
                 {
@@ -239,6 +239,9 @@ public class FetchService
                             .Select(n => n.InnerText.Trim())
                             .FirstOrDefault());
 
+                        var cateogryDiv = htmlDoc?.DocumentNode?.SelectSingleNode(".//div[@class='pt-2 mt-4']");
+                        product.Category = cateogryDiv?.SelectSingleNode(".//strong")?.InnerText;
+
                         var ingredientsDivs = htmlDoc?.DocumentNode?.SelectNodes("//div[contains(@class, 'col-span-8')]");
                         if (ingredientsDivs is not null && ingredientsDivs.Count != 0)
                         {
@@ -252,15 +255,27 @@ public class FetchService
                             }
                         }
 
-                        var quickInfoDivs = htmlDoc?.DocumentNode?.SelectNodes("//*[contains(@class, 'flex flex-row-reverse')]");
+                        var quickInfoUpperDiv = htmlDoc?.DocumentNode?.SelectSingleNode("//div[@class='grid grid-cols-2 lg:grid-cols-4 lg:mx-auto text-center font-header font-medium']");
+                        var quickInfoDivs = quickInfoUpperDiv?.SelectNodes(".//div[@x-data[contains(., 'toggle')]]");
+
                         if (quickInfoDivs is not null && quickInfoDivs.Count != 0)
                         {
-                            foreach(var div in quickInfoDivs)
+                            foreach (var quickInfoDiv in quickInfoDivs)
                             {
-                                var info = HttpUtility.HtmlDecode(div.InnerText?.Replace("\n\n\n", " ").Trim());
-                                if (!string.IsNullOrEmpty(info))
+                                var button = quickInfoDiv.Descendants("button").FirstOrDefault();
+                                if (button != null)
                                 {
-                                    product.QuickInfo.Add(info);
+                                    var svgValue = button.SelectSingleNode(".//svg").GetAttributeValue("fill", "");
+                                    var isInfoTicked = svgValue == "currentColor" ? "true" : "false";
+
+                                    var innerTextNode = button.Descendants("div").FirstOrDefault();
+
+                                    if (innerTextNode != null)
+                                    {
+                                        var innerText = innerTextNode.InnerText.Trim();
+                                        var resultText = $"{innerText}: {isInfoTicked}";
+                                        product.QuickInfo.Add(resultText);
+                                    }
                                 }
                             }
                         }
