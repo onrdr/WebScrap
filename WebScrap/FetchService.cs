@@ -182,6 +182,7 @@ public class FetchService
     {
         var productCounter = 1;
         var pageCounter = 1;
+        var maxPageCount = 1616;
 
         var coreUrl = $"https://skinsort.com";
 
@@ -191,7 +192,7 @@ public class FetchService
 
         try
         {
-            while (pageCounter <= 5)
+            while (pageCounter <= maxPageCount)
             {
                 var siteUrl = $"{coreUrl}/products/page/{pageCounter}";
 
@@ -216,6 +217,7 @@ public class FetchService
 
                 if (urlList is not null && urlList.Count != 0)
                 {
+                    Console.WriteLine($"Page: {pageCounter} will be fetched");
                     foreach (var link in urlList)
                     {
                         var product = new Product2
