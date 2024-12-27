@@ -12,6 +12,7 @@ public class FetchService
     {
         var productCounter = 1;
         var pageCounter = 1;
+        var currentMaxPageNumber = 1383;
 
         var coreUrl = $"https://skinsort.com";
 
@@ -21,7 +22,7 @@ public class FetchService
 
         try
         {
-            while (pageCounter <= 1383)
+            while (pageCounter <= currentMaxPageNumber)
             {
                 var siteUrl = $"{coreUrl}/ingredients/page/{pageCounter}";
 
@@ -45,6 +46,8 @@ public class FetchService
 
                 if (urlList is not null && urlList.Count != 0)
                 {
+                    Console.WriteLine($"Page: {pageCounter} will be fetched");
+
                     foreach (var link in urlList)
                     {
                         var product = new Product();
@@ -86,28 +89,34 @@ public class FetchService
                             }
                         }
 
-                        var benefitAndConcernsDivs = htmlDoc?.DocumentNode?.SelectNodes("//div[@class='flex flex-wrap mt-2']");
+                        var benefitAndConcernsDivs = htmlDoc?.DocumentNode?
+                            .SelectNodes("//div[@class='flex items-start border-b border-warm-gray-100 last:border-none mt-2 pb-1']");
 
-                        if (benefitAndConcernsDivs is not null && benefitAndConcernsDivs.Count != 0)
+                        if (benefitAndConcernsDivs is not null && benefitAndConcernsDivs.Count > 0)
                         {
-                            var benefitNodes = benefitAndConcernsDivs?.FirstOrDefault()?.SelectNodes(".//div[@class='px-3 text-left py-0.5']");
-                            if (benefitNodes is not null && benefitNodes.Count != 0)
+                            foreach (var benefitAndConcernsDiv in benefitAndConcernsDivs)
                             {
-                                foreach (var benefit in benefitNodes)
+                                if (benefitAndConcernsDiv.InnerText.Contains("Benefits"))
                                 {
-                                    product.Benefits.Add(HttpUtility.HtmlDecode(benefit.InnerText.Trim()));
+                                    var benefitNodes = benefitAndConcernsDivs?.FirstOrDefault()?.SelectNodes(".//div[@class='px-3 text-left py-0.5']");
+                                    if (benefitNodes is not null && benefitNodes.Count != 0)
+                                    {
+                                        foreach (var benefit in benefitNodes)
+                                        {
+                                            product.Benefits.Add(HttpUtility.HtmlDecode(benefit.InnerText.Trim()));
+                                        }
+                                    }
                                 }
-                            }
-                        }
-
-                        if (benefitAndConcernsDivs is not null && benefitAndConcernsDivs.Count > 1)
-                        {
-                            var concernsNodes = benefitAndConcernsDivs?.LastOrDefault()?.SelectNodes(".//div[@class='px-3 text-left py-0.5']");
-                            if (concernsNodes is not null && concernsNodes.Count != 0)
-                            {
-                                foreach (var concern in concernsNodes)
+                                else if (benefitAndConcernsDiv.InnerText.Contains("Concerns"))
                                 {
-                                    product.Concerns.Add(HttpUtility.HtmlDecode(concern.InnerText.Trim()));
+                                    var concernsNodes = benefitAndConcernsDivs?.LastOrDefault()?.SelectNodes(".//div[@class='px-3 text-left py-0.5']");
+                                    if (concernsNodes is not null && concernsNodes.Count != 0)
+                                    {
+                                        foreach (var concern in concernsNodes)
+                                        {
+                                            product.Concerns.Add(HttpUtility.HtmlDecode(concern.InnerText.Trim()));
+                                        }
+                                    }
                                 }
                             }
                         }
@@ -182,7 +191,7 @@ public class FetchService
     {
         var productCounter = 1;
         var pageCounter = 1;
-        var maxPageCount = 1616;
+        var maxPageCount = 1943;
 
         var coreUrl = $"https://skinsort.com";
 
@@ -218,6 +227,7 @@ public class FetchService
                 if (urlList is not null && urlList.Count != 0)
                 {
                     Console.WriteLine($"Page: {pageCounter} will be fetched");
+
                     foreach (var link in urlList)
                     {
                         var product = new Product2
